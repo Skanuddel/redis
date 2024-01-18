@@ -153,10 +153,3 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
     decrRefCount(eventobj);
 	decrRefCount(valueobj);
 }
-
-void keyeventExpiredCallback(redisDb *db, robj *key){
-    robj *val = lookupKey(db, key, LOOKUP_NOTOUCH);
-    if(val != NULL) {
-        printf("The value of the key %s is %s\n", key->ptr, val->ptr);
-    }
-}
