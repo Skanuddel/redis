@@ -138,7 +138,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
         chan = sdscatlen(chan, "__:", 3);
         chan = sdscatsds(chan, key->ptr);
         chanobj = createObject(OBJ_STRING, chan);
-		if(event=="expire"){
+		if (event && strcmp(event, "expired") == 0) {
 			pubsubPublishMessageExpire(chanobj, eventobj, valueobj);
 		}
 		else{
@@ -155,7 +155,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
         chan = sdscatlen(chan, "__:", 3);
         chan = sdscatsds(chan, eventobj->ptr);
         chanobj = createObject(OBJ_STRING, chan);
-		if(event=="expire"){
+		if (event && strcmp(event, "expired") == 0) {
 			pubsubPublishMessageExpire(chanobj, eventobj, valueobj);
 		}
 		else{
