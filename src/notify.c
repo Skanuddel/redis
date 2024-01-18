@@ -107,21 +107,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
     int len = -1;
     char buf[24];
 	
-	switch(type) {
-        case NOTIFY_EVICTED:
-            keyeventExpiredCallback(dbid, key);
-            break;
-		case NOTIFY_GENERIC:
-			if (event == "expire"){
-				keyeventExpiredCallback(dbid, key);
-			}
-            break;
-        default:
-            break;
-    }
-
-
-    /* If any modules are interested in events, notify the module system now.
+	/* If any modules are interested in events, notify the module system now.
      * This bypasses the notifications configuration, but the module engine
      * will only call event subscribers if the event type matches the types
      * they are interested in. */
@@ -130,6 +116,15 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
     /* If notifications for this class of events are off, return ASAP. */
     if (!(server.notify_keyspace_events & type)) return;
 
+    /* Fetch the value associated with the key. */
+    robj *o = lookupKeyRead(NULL,key);
+    if (o != NULL) {
+        incrRefCount(o);
+        valueobj = o;
+    } else {
+        valueobj = createStringObject("Key not found", 14);
+    }
+	
     eventobj = createStringObject(event,strlen(event));
 
     /* __keyspace@<db>__:<key> <event> notifications. */
@@ -140,7 +135,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
         chan = sdscatlen(chan, "__:", 3);
         chan = sdscatsds(chan, key->ptr);
         chanobj = createObject(OBJ_STRING, chan);
-        pubsubPublishMessage(chanobj, eventobj, 0);
+        pubsubPublishMessage(chanobj, eventobj, valueobj);
         decrRefCount(chanobj);
     }
 
@@ -152,10 +147,11 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
         chan = sdscatlen(chan, "__:", 3);
         chan = sdscatsds(chan, eventobj->ptr);
         chanobj = createObject(OBJ_STRING, chan);
-        pubsubPublishMessage(chanobj, key, 0);
+        pubsubPublishMessage(chanobj, key, valueobj);
         decrRefCount(chanobj);
     }
     decrRefCount(eventobj);
+	decrRefCount(valueobj);
 }
 
 void keyeventExpiredCallback(redisDb *db, robj *key){
