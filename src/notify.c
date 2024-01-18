@@ -109,7 +109,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
 	
 	switch(type) {
         case NOTIFY_EVICTED:
-            keyeventExpiredCallback(db, key);
+            keyeventExpiredCallback(dbid, key);
             break;
         default:
             break;
@@ -154,7 +154,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
 }
 
 void keyeventExpiredCallback(redisDb *db, robj *key){
-    robj *val = lookupKey(db, key, LOOKUP_NOTOUCH);
+    robj *val = lookupKeyRead(db, key, LOOKUP_NOTOUCH);
     if(val != NULL) {
         printf("The value of the key %s is %s\n", key->ptr, val->ptr);
     }
