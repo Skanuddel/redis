@@ -114,7 +114,7 @@ pubsubtype pubSubShardType = {
  * message. However if the caller sets 'msg' as NULL, it will be able
  * to send a special message (for instance an Array type) by using the
  * addReply*() API family. */
-void addReplyPubsubMessage(client *c, robj *channel, robj *msg, robj *message_bulk) {
+void addReplyPubsubMessage(client *c, robj *channel, robj *msg, robj *value, robj *message_bulk) {
     uint64_t old_flags = c->flags;
     c->flags |= CLIENT_PUSHING;
     if (c->resp == 2)
@@ -124,13 +124,14 @@ void addReplyPubsubMessage(client *c, robj *channel, robj *msg, robj *message_bu
     addReply(c,message_bulk);
     addReplyBulk(c,channel);
     if (msg) addReplyBulk(c,msg);
+    addReplyBulk(c, value);
     if (!(old_flags & CLIENT_PUSHING)) c->flags &= ~CLIENT_PUSHING;
 }
 
 /* Send a pubsub message of type "pmessage" to the client. The difference
  * with the "message" type delivered by addReplyPubsubMessage() is that
  * this message format also includes the pattern that matched the message. */
-void addReplyPubsubPatMessage(client *c, robj *pat, robj *channel, robj *msg) {
+void addReplyPubsubPatMessage(client *c, robj *pat, robj *channel, robj *msg, robj *value) {
     uint64_t old_flags = c->flags;
     c->flags |= CLIENT_PUSHING;
     if (c->resp == 2)
@@ -141,6 +142,7 @@ void addReplyPubsubPatMessage(client *c, robj *pat, robj *channel, robj *msg) {
     addReplyBulk(c,pat);
     addReplyBulk(c,channel);
     addReplyBulk(c,msg);
+	addReplyBulk(c, value);
     if (!(old_flags & CLIENT_PUSHING)) c->flags &= ~CLIENT_PUSHING;
 }
 
@@ -513,7 +515,7 @@ int pubsubUnsubscribeAllPatterns(client *c, int notify) {
 /*
  * Publish a message to all the subscribers.
  */
-int pubsubPublishMessageInternal(robj *channel, robj *message, pubsubtype type) {
+int pubsubPublishMessageInternal(robj *channel, robj *message, robj *value, pubsubtype type) {
     int receivers = 0;
     dict *d;
     dictEntry *de;
@@ -532,7 +534,7 @@ int pubsubPublishMessageInternal(robj *channel, robj *message, pubsubtype type) 
         dictIterator *iter = dictGetSafeIterator(clients);
         while ((entry = dictNext(iter)) != NULL) {
             client *c = dictGetKey(entry);
-            addReplyPubsubMessage(c,channel,message,*type.messageBulk);
+            addReplyPubsubMessage(c,channel,message,value,*type.messageBulk);
             updateClientMemUsageAndBucket(c);
             receivers++;
         }
@@ -560,7 +562,7 @@ int pubsubPublishMessageInternal(robj *channel, robj *message, pubsubtype type) 
             dictIterator *iter = dictGetSafeIterator(clients);
             while ((entry = dictNext(iter)) != NULL) {
                 client *c = dictGetKey(entry);
-                addReplyPubsubPatMessage(c,pattern,channel,message);
+                addReplyPubsubPatMessage(c,pattern,channel,message,value);
                 updateClientMemUsageAndBucket(c);
                 receivers++;
             }
@@ -573,8 +575,8 @@ int pubsubPublishMessageInternal(robj *channel, robj *message, pubsubtype type) 
 }
 
 /* Publish a message to all the subscribers. */
-int pubsubPublishMessage(robj *channel, robj *message, int sharded) {
-    return pubsubPublishMessageInternal(channel, message, sharded? pubSubShardType : pubSubType);
+int pubsubPublishMessage(robj *channel, robj *message, robj *value, int sharded) {
+    return pubsubPublishMessageInternal(channel, message, value, sharded? pubSubShardType : pubSubType);
 }
 
 /*-----------------------------------------------------------------------------
