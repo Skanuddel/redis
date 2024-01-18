@@ -106,6 +106,15 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
     robj *chanobj, *eventobj;
     int len = -1;
     char buf[24];
+	
+	switch(type) {
+        case REDIS_NOTIFY_EXPIRED:
+            keyeventExpiredCallback(db, key);
+            break;
+        default:
+            break;
+    }
+
 
     /* If any modules are interested in events, notify the module system now.
      * This bypasses the notifications configuration, but the module engine
@@ -142,4 +151,11 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
         decrRefCount(chanobj);
     }
     decrRefCount(eventobj);
+}
+
+void keyeventExpiredCallback(redisDb *db, robj *key){
+    robj *val = lookupKey(db, key, LOOKUP_NOTOUCH);
+    if(val != NULL) {
+        printf("The value of the key %s is %s\n", key->ptr, val->ptr);
+    }
 }
