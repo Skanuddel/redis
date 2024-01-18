@@ -108,7 +108,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
     char buf[24];
 	
 	switch(type) {
-        case REDIS_NOTIFY_EXPIRED:
+        case NOTIFY_EVICTED:
             keyeventExpiredCallback(db, key);
             break;
         default:
