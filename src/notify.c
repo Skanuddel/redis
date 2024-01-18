@@ -117,7 +117,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
     if (!(server.notify_keyspace_events & type)) return;
 
     /* Fetch the value associated with the key. */
-	if (event && strcmp(event, "expired") == 0) {{
+	if (event && strcmp(event, "expired") == 0) {
 		robj *o = lookupKeyRead(NULL,key);
 		if (o != NULL) {
 			incrRefCount(o);
