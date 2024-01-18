@@ -112,7 +112,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
             keyeventExpiredCallback(dbid, key);
             break;
 		case NOTIFY_GENERIC:
-			if event == "expire"){
+			if (event == "expire"){
 				keyeventExpiredCallback(dbid, key);
 			}
             break;
