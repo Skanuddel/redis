@@ -164,5 +164,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
         decrRefCount(chanobj);
     }
     decrRefCount(eventobj);
-	decrRefCount(valueobj);
+	if (event && strcmp(event, "expired") == 0) {
+		decrRefCount(valueobj);
+	}
 }
