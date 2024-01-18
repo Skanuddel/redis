@@ -682,7 +682,7 @@ void expireGenericCommand(client *c, long long basetime, int unit) {
         }
 
         signalModifiedKey(c,c->db,key);
-        notifyKeyspaceEventExpire(NOTIFY_GENERIC,"expire",key,value,c->db->id);
+        notifyKeyspaceEventExpire(NOTIFY_GENERIC,"expire",key,valueobj,c->db->id);
         server.dirty++;
         return;
     }
