@@ -117,13 +117,16 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
     if (!(server.notify_keyspace_events & type)) return;
 
     /* Fetch the value associated with the key. */
-    robj *o = lookupKeyRead(NULL,key);
-    if (o != NULL) {
-        incrRefCount(o);
-        valueobj = o;
-    } else {
-        valueobj = createStringObject("Key not found", 14);
-    }
+	if(event=="expire"){
+		robj *o = lookupKeyRead(NULL,key);
+		if (o != NULL) {
+			incrRefCount(o);
+			valueobj = o;
+		} else {
+			valueobj = createStringObject("Key not found", 14);
+		}
+	}
+	
 	
     eventobj = createStringObject(event,strlen(event));
 
@@ -135,7 +138,12 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
         chan = sdscatlen(chan, "__:", 3);
         chan = sdscatsds(chan, key->ptr);
         chanobj = createObject(OBJ_STRING, chan);
-        pubsubPublishMessage(chanobj, eventobj, valueobj);
+		if(event=="expire"){
+			pubsubPublishMessageExpire(chanobj, eventobj, valueobj);
+		}
+		else{
+			pubsubPublishMessage(chanobj, eventobj, 0);			
+		}
         decrRefCount(chanobj);
     }
 
@@ -147,7 +155,12 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
         chan = sdscatlen(chan, "__:", 3);
         chan = sdscatsds(chan, eventobj->ptr);
         chanobj = createObject(OBJ_STRING, chan);
-        pubsubPublishMessage(chanobj, key, valueobj);
+		if(event=="expire"){
+			pubsubPublishMessageExpire(chanobj, eventobj, valueobj);
+		}
+		else{
+			pubsubPublishMessage(chanobj, eventobj, 0);			
+		}
         decrRefCount(chanobj);
     }
     decrRefCount(eventobj);

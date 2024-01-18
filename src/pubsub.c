@@ -114,7 +114,21 @@ pubsubtype pubSubShardType = {
  * message. However if the caller sets 'msg' as NULL, it will be able
  * to send a special message (for instance an Array type) by using the
  * addReply*() API family. */
-void addReplyPubsubMessage(client *c, robj *channel, robj *msg, robj *value, robj *message_bulk) {
+ 
+ void addReplyPubsubMessage(client *c, robj *channel, robj *msg, robj *message_bulk) {
+    uint64_t old_flags = c->flags;
+    c->flags |= CLIENT_PUSHING;
+    if (c->resp == 2)
+        addReply(c,shared.mbulkhdr[3]);
+    else
+        addReplyPushLen(c,3);
+    addReply(c,message_bulk);
+    addReplyBulk(c,channel);
+    if (msg) addReplyBulk(c,msg);
+    if (!(old_flags & CLIENT_PUSHING)) c->flags &= ~CLIENT_PUSHING;
+}
+
+void addReplyPubsubMessageExpire(client *c, robj *channel, robj *msg, robj *value, robj *message_bulk) {
     uint64_t old_flags = c->flags;
     c->flags |= CLIENT_PUSHING;
     if (c->resp == 2)
@@ -131,7 +145,21 @@ void addReplyPubsubMessage(client *c, robj *channel, robj *msg, robj *value, rob
 /* Send a pubsub message of type "pmessage" to the client. The difference
  * with the "message" type delivered by addReplyPubsubMessage() is that
  * this message format also includes the pattern that matched the message. */
-void addReplyPubsubPatMessage(client *c, robj *pat, robj *channel, robj *msg, robj *value) {
+void addReplyPubsubPatMessage(client *c, robj *pat, robj *channel, robj *msg) {
+    uint64_t old_flags = c->flags;
+    c->flags |= CLIENT_PUSHING;
+    if (c->resp == 2)
+        addReply(c,shared.mbulkhdr[4]);
+    else
+        addReplyPushLen(c,4);
+    addReply(c,shared.pmessagebulk);
+    addReplyBulk(c,pat);
+    addReplyBulk(c,channel);
+    addReplyBulk(c,msg);
+    if (!(old_flags & CLIENT_PUSHING)) c->flags &= ~CLIENT_PUSHING;
+}
+
+void addReplyPubsubPatMessageExpire(client *c, robj *pat, robj *channel, robj *msg, robj *value) {
     uint64_t old_flags = c->flags;
     c->flags |= CLIENT_PUSHING;
     if (c->resp == 2)
@@ -515,7 +543,7 @@ int pubsubUnsubscribeAllPatterns(client *c, int notify) {
 /*
  * Publish a message to all the subscribers.
  */
-int pubsubPublishMessageInternal(robj *channel, robj *message, robj *value, pubsubtype type) {
+int pubsubPublishMessageInternal(robj *channel, robj *message, pubsubtype type) {
     int receivers = 0;
     dict *d;
     dictEntry *de;
@@ -534,7 +562,7 @@ int pubsubPublishMessageInternal(robj *channel, robj *message, robj *value, pubs
         dictIterator *iter = dictGetSafeIterator(clients);
         while ((entry = dictNext(iter)) != NULL) {
             client *c = dictGetKey(entry);
-            addReplyPubsubMessage(c,channel,message,value,*type.messageBulk);
+            addReplyPubsubMessage(c,channel,message,*type.messageBulk);
             updateClientMemUsageAndBucket(c);
             receivers++;
         }
@@ -562,7 +590,66 @@ int pubsubPublishMessageInternal(robj *channel, robj *message, robj *value, pubs
             dictIterator *iter = dictGetSafeIterator(clients);
             while ((entry = dictNext(iter)) != NULL) {
                 client *c = dictGetKey(entry);
-                addReplyPubsubPatMessage(c,pattern,channel,message,value);
+                addReplyPubsubPatMessage(c,pattern,channel,message);
+                updateClientMemUsageAndBucket(c);
+                receivers++;
+            }
+            dictReleaseIterator(iter);
+        }
+        decrRefCount(channel);
+        dictReleaseIterator(di);
+    }
+    return receivers;
+}
+
+int pubsubPublishMessageInternalExpire(robj *channel, robj *message, robj *value, pubsubtype type) {
+    int receivers = 0;
+    dict *d;
+    dictEntry *de;
+    dictIterator *di;
+    unsigned int slot = 0;
+
+    /* Send to clients listening for that channel */
+    if (server.cluster_enabled && type.shard) {
+        slot = keyHashSlot(channel->ptr, sdslen(channel->ptr));
+    }
+    d = *type.serverPubSubChannels(slot);
+    de = d ? dictFind(d, channel) : NULL;
+    if (de) {
+        dict *clients = dictGetVal(de);
+        dictEntry *entry;
+        dictIterator *iter = dictGetSafeIterator(clients);
+        while ((entry = dictNext(iter)) != NULL) {
+            client *c = dictGetKey(entry);
+            addReplyPubsubMessageExpire(c,channel,message,value,*type.messageBulk);
+            updateClientMemUsageAndBucket(c);
+            receivers++;
+        }
+        dictReleaseIterator(iter);
+    }
+
+    if (type.shard) {
+        /* Shard pubsub ignores patterns. */
+        return receivers;
+    }
+
+    /* Send to clients listening to matching channels */
+    di = dictGetIterator(server.pubsub_patterns);
+    if (di) {
+        channel = getDecodedObject(channel);
+        while((de = dictNext(di)) != NULL) {
+            robj *pattern = dictGetKey(de);
+            dict *clients = dictGetVal(de);
+            if (!stringmatchlen((char*)pattern->ptr,
+                                sdslen(pattern->ptr),
+                                (char*)channel->ptr,
+                                sdslen(channel->ptr),0)) continue;
+
+            dictEntry *entry;
+            dictIterator *iter = dictGetSafeIterator(clients);
+            while ((entry = dictNext(iter)) != NULL) {
+                client *c = dictGetKey(entry);
+                addReplyPubsubPatMessageExpire(c,pattern,channel,message,value);
                 updateClientMemUsageAndBucket(c);
                 receivers++;
             }
@@ -575,8 +662,12 @@ int pubsubPublishMessageInternal(robj *channel, robj *message, robj *value, pubs
 }
 
 /* Publish a message to all the subscribers. */
-int pubsubPublishMessage(robj *channel, robj *message, robj *value, int sharded) {
-    return pubsubPublishMessageInternal(channel, message, value, sharded? pubSubShardType : pubSubType);
+int pubsubPublishMessage(robj *channel, robj *message, int sharded) {
+    return pubsubPublishMessageInternal(channel, message, sharded? pubSubShardType : pubSubType);
+}
+
+int pubsubPublishMessageExpire(robj *channel, robj *message, robj *value, int sharded) {
+    return pubsubPublishMessageInternalExpire(channel, message, value, sharded? pubSubShardType : pubSubType);
 }
 
 /*-----------------------------------------------------------------------------
