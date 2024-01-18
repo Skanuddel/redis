@@ -117,7 +117,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
     if (!(server.notify_keyspace_events & type)) return;
 
     /* Fetch the value associated with the key. */
-	if(event=="expire"){
+	if (event && strcmp(event, "expired") == 0) {{
 		robj *o = lookupKeyRead(NULL,key);
 		if (o != NULL) {
 			incrRefCount(o);
@@ -139,7 +139,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
         chan = sdscatsds(chan, key->ptr);
         chanobj = createObject(OBJ_STRING, chan);
 		if (event && strcmp(event, "expired") == 0) {
-			pubsubPublishMessageExpire(chanobj, eventobj, valueobj);
+			pubsubPublishMessageExpire(chanobj, eventobj, valueobj, 0);
 		}
 		else{
 			pubsubPublishMessage(chanobj, eventobj, 0);			
@@ -156,7 +156,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
         chan = sdscatsds(chan, eventobj->ptr);
         chanobj = createObject(OBJ_STRING, chan);
 		if (event && strcmp(event, "expired") == 0) {
-			pubsubPublishMessageExpire(chanobj, eventobj, valueobj);
+			pubsubPublishMessageExpire(chanobj, eventobj, valueobj, 0);
 		}
 		else{
 			pubsubPublishMessage(chanobj, eventobj, 0);			
