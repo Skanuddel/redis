@@ -101,9 +101,9 @@ sds keyspaceEventsFlagsToString(int flags) {
  * 'event' is a C string representing the event name.
  * 'key' is a Redis object representing the key name.
  * 'dbid' is the database ID where the key lives.  */
-void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
+void notifyKeyspaceEventExpire(int type, char *event, robj *key, robj *value, int dbid) {
     sds chan;
-    robj *chanobj, *eventobj, *valueobj;
+    robj *chanobj, *eventobj;
     int len = -1;
     char buf[24];
 	
@@ -115,18 +115,6 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
 
     /* If notifications for this class of events are off, return ASAP. */
     if (!(server.notify_keyspace_events & type)) return;
-
-    /* Fetch the value associated with the key. */
-	if (event && strcmp(event, "expired") == 0) {
-		robj *o = lookupKeyRead(NULL,key);
-		if (o != NULL) {
-			incrRefCount(o);
-			valueobj = o;
-		} else {
-			valueobj = createStringObject("Key not found", 14);
-		}
-	}
-	
 	
     eventobj = createStringObject(event,strlen(event));
 
@@ -139,7 +127,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
         chan = sdscatsds(chan, key->ptr);
         chanobj = createObject(OBJ_STRING, chan);
 		if (event && strcmp(event, "expired") == 0) {
-			pubsubPublishMessageExpire(chanobj, eventobj, valueobj, 0);
+			pubsubPublishMessageExpire(chanobj, eventobj, value, 0);
 		}
 		else{
 			pubsubPublishMessage(chanobj, eventobj, 0);			
@@ -156,7 +144,7 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
         chan = sdscatsds(chan, eventobj->ptr);
         chanobj = createObject(OBJ_STRING, chan);
 		if (event && strcmp(event, "expired") == 0) {
-			pubsubPublishMessageExpire(chanobj, eventobj, valueobj, 0);
+			pubsubPublishMessageExpire(chanobj, eventobj, value, 0);
 		}
 		else{
 			pubsubPublishMessage(chanobj, eventobj, 0);			
@@ -164,7 +152,47 @@ void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
         decrRefCount(chanobj);
     }
     decrRefCount(eventobj);
-	if (event && strcmp(event, "expired") == 0) {
-		decrRefCount(valueobj);
-	}
+}
+
+void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
+    sds chan;
+    robj *chanobj, *eventobj;
+    int len = -1;
+    char buf[24];
+	
+	/* If any modules are interested in events, notify the module system now.
+     * This bypasses the notifications configuration, but the module engine
+     * will only call event subscribers if the event type matches the types
+     * they are interested in. */
+     moduleNotifyKeyspaceEvent(type, event, key, dbid);
+
+    /* If notifications for this class of events are off, return ASAP. */
+    if (!(server.notify_keyspace_events & type)) return;
+	
+    eventobj = createStringObject(event,strlen(event));
+
+    /* __keyspace@<db>__:<key> <event> notifications. */
+    if (server.notify_keyspace_events & NOTIFY_KEYSPACE) {
+        chan = sdsnewlen("__keyspace@",11);
+        len = ll2string(buf,sizeof(buf),dbid);
+        chan = sdscatlen(chan, buf, len);
+        chan = sdscatlen(chan, "__:", 3);
+        chan = sdscatsds(chan, key->ptr);
+        chanobj = createObject(OBJ_STRING, chan);
+		pubsubPublishMessage(chanobj, eventobj, 0);			
+        decrRefCount(chanobj);
+    }
+
+    /* __keyevent@<db>__:<event> <key> notifications. */
+    if (server.notify_keyspace_events & NOTIFY_KEYEVENT) {
+        chan = sdsnewlen("__keyevent@",11);
+        if (len == -1) len = ll2string(buf,sizeof(buf),dbid);
+        chan = sdscatlen(chan, buf, len);
+        chan = sdscatlen(chan, "__:", 3);
+        chan = sdscatsds(chan, eventobj->ptr);
+        chanobj = createObject(OBJ_STRING, chan);
+		pubsubPublishMessage(chanobj, eventobj, 0);			
+        decrRefCount(chanobj);
+    }
+    decrRefCount(eventobj);
 }
