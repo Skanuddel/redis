@@ -644,7 +644,15 @@ void expireGenericCommand(client *c, long long basetime, int unit) {
     }
 
     if (checkAlreadyExpired(when)) {
-        robj *aux;
+        robj *aux, *valueobj;
+		
+		robj *o = lookupKeyRead(NULL,key);
+		if (o != NULL) {
+			incrRefCount(o);
+			valueobj = o;
+		} else {
+			valueobj = createStringObject("Key not found", 14);
+		}
 
         int deleted = dbGenericDelete(c->db,key,server.lazyfree_lazy_expire,DB_FLAG_KEY_EXPIRED);
         serverAssertWithInfo(c,key,deleted);
