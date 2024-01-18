@@ -103,7 +103,7 @@ sds keyspaceEventsFlagsToString(int flags) {
  * 'dbid' is the database ID where the key lives.  */
 void notifyKeyspaceEvent(int type, char *event, robj *key, int dbid) {
     sds chan;
-    robj *chanobj, *eventobj;
+    robj *chanobj, *eventobj, *valueobj;;
     int len = -1;
     char buf[24];
 	
