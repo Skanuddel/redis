@@ -2125,7 +2125,7 @@ void deleteExpiredKeyAndPropagate(redisDb *db, robj *keyobj) {
 		valueobj = createStringObject("Key not found", 14);
 	}
 		
-	setExpire(NULL, db, keyobj, -1);
+	removeExpire(db, keyobj);
     notifyKeyspaceEventExpire(NOTIFY_EXPIRED,"expired",keyobj,valueobj,db->id);
     signalModifiedKey(NULL, db, keyobj);
 	propagateDeletion(db,keyobj,server.lazyfree_lazy_expire);
@@ -2254,7 +2254,7 @@ int expireIfNeeded(redisDb *db, robj *key, int flags) {
         key = createStringObject(key->ptr, sdslen(key->ptr));
     }
     /* Delete the key */
-    //deleteExpiredKeyAndPropagate(db,key);
+    deleteExpiredKeyAndPropagate(db,key);
     if (static_key) {
         decrRefCount(key);
     }
