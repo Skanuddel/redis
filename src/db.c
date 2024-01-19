@@ -241,27 +241,9 @@ robj *lookupKeyExpire(redisDb *db, robj *key, int flags) {
             expire_flags |= EXPIRE_AVOID_DELETE_EXPIRED;
     }
 
-    if (val) {
-        /* Update the access time for the ageing algorithm.
-         * Don't do it if we have a saving child, as this will trigger
-         * a copy on write madness. */
-        if (server.current_client && server.current_client->flags & CLIENT_NO_TOUCH &&
-            server.current_client->cmd->proc != touchCommand)
-            flags |= LOOKUP_NOTOUCH;
-        if (!hasActiveChildProcess() && !(flags & LOOKUP_NOTOUCH)){
-            if (server.maxmemory_policy & MAXMEMORY_FLAG_LFU) {
-                updateLFU(val);
-            } else {
-                val->lru = LRU_CLOCK();
-            }
-        }
-
-        if (!(flags & (LOOKUP_NOSTATS | LOOKUP_WRITE)))
-            server.stat_keyspace_hits++;
-        /* TODO: Use separate hits stats for WRITE */
-    } else {
+    if (!val) {
         if (!(flags & (LOOKUP_NONOTIFY | LOOKUP_WRITE)))
-            notifyKeyspaceEventExpire(NOTIFY_KEY_MISS, "keymiss", key, val, db->id);
+            notifyKeyspaceEvent(NOTIFY_KEY_MISS, "keymiss", key, db->id);
         if (!(flags & (LOOKUP_NOSTATS | LOOKUP_WRITE)))
             server.stat_keyspace_misses++;
         /* TODO: Use separate misses stats and notify event for WRITE */
