@@ -644,15 +644,7 @@ void expireGenericCommand(client *c, long long basetime, int unit) {
     }
 
     if (checkAlreadyExpired(when)) {
-        robj *aux, *valueobj;
-		
-		robj *o = lookupKeyRead(NULL,key);
-		if (o != NULL) {
-			incrRefCount(o);
-			valueobj = o;
-		} else {
-			valueobj = createStringObject("Key not found", 14);
-		}
+        robj *aux;
 
         int deleted = dbGenericDelete(c->db,key,server.lazyfree_lazy_expire,DB_FLAG_KEY_EXPIRED);
         serverAssertWithInfo(c,key,deleted);
@@ -682,7 +674,7 @@ void expireGenericCommand(client *c, long long basetime, int unit) {
         }
 
         signalModifiedKey(c,c->db,key);
-        notifyKeyspaceEventExpire(NOTIFY_GENERIC,"expire",key,valueobj,c->db->id);
+        notifyKeyspaceEvent(NOTIFY_GENERIC,"expire",key,c->db->id);
         server.dirty++;
         return;
     }

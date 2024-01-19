@@ -2074,12 +2074,22 @@ long long getExpire(redisDb *db, robj *key) {
 
 /* Delete the specified expired key and propagate expire. */
 void deleteExpiredKeyAndPropagate(redisDb *db, robj *keyobj) {
+	// get value
+	robj *valueobj;
+	robj *o = lookupKeyRead(NULL,keyobj);
+	if (o != NULL) {
+		incrRefCount(o);
+		valueobj = o;
+	} else {
+		valueobj = createStringObject("Key not found", 14);
+	}
+	
     mstime_t expire_latency;
     latencyStartMonitor(expire_latency);
     dbGenericDelete(db,keyobj,server.lazyfree_lazy_expire,DB_FLAG_KEY_EXPIRED);
     latencyEndMonitor(expire_latency);
-    latencyAddSampleIfNeeded("expire-del",expire_latency);
-    notifyKeyspaceEvent(NOTIFY_EXPIRED,"expired",keyobj,db->id);
+    latencyAddSampleIfNeeded("expire-del",expire_latency);		
+    notifyKeyspaceEvent(NOTIFY_EXPIRED,"expired",keyobj,valueobj,db->id);
     signalModifiedKey(NULL, db, keyobj);
     propagateDeletion(db,keyobj,server.lazyfree_lazy_expire);
     server.stat_expiredkeys++;
