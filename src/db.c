@@ -2254,7 +2254,7 @@ int expireIfNeeded(redisDb *db, robj *key, int flags) {
         key = createStringObject(key->ptr, sdslen(key->ptr));
     }
     /* Delete the key */
-    deleteExpiredKeyAndPropagate(db,key);
+    //deleteExpiredKeyAndPropagate(db,key);
     if (static_key) {
         decrRefCount(key);
     }
