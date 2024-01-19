@@ -2117,7 +2117,7 @@ long long getExpire(redisDb *db, robj *key) {
 void deleteExpiredKeyAndPropagate(redisDb *db, robj *keyobj) {
 	// get value
 	robj *valueobj;
-	robj *o = lookupKeyReadExpire(NULL,keyobj);
+	robj *o = lookupKeyReadExpire(db,keyobj);
 	if (o != NULL) {
 		incrRefCount(o);
 		valueobj = o;
