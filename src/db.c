@@ -261,7 +261,7 @@ robj *lookupKeyExpire(redisDb *db, robj *key, int flags) {
         /* TODO: Use separate hits stats for WRITE */
     } else {
         if (!(flags & (LOOKUP_NONOTIFY | LOOKUP_WRITE)))
-            notifyKeyspaceEvent(NOTIFY_KEY_MISS, "keymiss", key, db->id);
+            notifyKeyspaceEventExpire(NOTIFY_KEY_MISS, "keymiss", key, val, db->id);
         if (!(flags & (LOOKUP_NOSTATS | LOOKUP_WRITE)))
             server.stat_keyspace_misses++;
         /* TODO: Use separate misses stats and notify event for WRITE */
