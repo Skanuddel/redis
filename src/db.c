@@ -287,6 +287,7 @@ robj *lookupKeyReadWithFlags(redisDb *db, robj *key, int flags) {
 robj *lookupKeyReadWithFlagsExpire(redisDb *db, robj *key, int flags) {
     serverAssert(!(flags & LOOKUP_WRITE));
     return lookupKeyExpire(db, key, flags);
+}
 
 /* Like lookupKeyReadWithFlags(), but does not use any flag, which is the
  * common case. */
