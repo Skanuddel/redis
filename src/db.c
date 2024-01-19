@@ -2124,15 +2124,10 @@ void deleteExpiredKeyAndPropagate(redisDb *db, robj *keyobj) {
 	} else {
 		valueobj = createStringObject("Key not found", 14);
 	}
-	
-    mstime_t expire_latency;
-    latencyStartMonitor(expire_latency);
-    dbGenericDelete(db,keyobj,server.lazyfree_lazy_expire,DB_FLAG_KEY_EXPIRED);
-    latencyEndMonitor(expire_latency);
-    latencyAddSampleIfNeeded("expire-del",expire_latency);		
+		
+	setExpire(NULL, db, robj keyobj, -1) {
     notifyKeyspaceEventExpire(NOTIFY_EXPIRED,"expired",keyobj,valueobj,db->id);
     signalModifiedKey(NULL, db, keyobj);
-    propagateDeletion(db,keyobj,server.lazyfree_lazy_expire);
     server.stat_expiredkeys++;
 }
 
@@ -2245,12 +2240,12 @@ int expireIfNeeded(redisDb *db, robj *key, int flags) {
     /* In some cases we're explicitly instructed to return an indication of a
      * missing key without actually deleting it, even on masters. */
     if (flags & EXPIRE_AVOID_DELETE_EXPIRED)
-        return 1;
+        return 0;
 
     /* If 'expire' action is paused, for whatever reason, then don't expire any key.
      * Typically, at the end of the pause we will properly expire the key OR we
      * will have failed over and the new primary will send us the expire. */
-    if (isPausedActionsWithUpdate(PAUSE_ACTION_EXPIRE)) return 1;
+    if (isPausedActionsWithUpdate(PAUSE_ACTION_EXPIRE)) return 0;
 
     /* The key needs to be converted from static to heap before deleted */
     int static_key = key->refcount == OBJ_STATIC_REFCOUNT;
@@ -2262,7 +2257,7 @@ int expireIfNeeded(redisDb *db, robj *key, int flags) {
     if (static_key) {
         decrRefCount(key);
     }
-    return 1;
+    return 0;
 }
 
 /*
