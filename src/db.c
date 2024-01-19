@@ -2125,8 +2125,8 @@ void deleteExpiredKeyAndPropagate(redisDb *db, robj *keyobj) {
 		valueobj = createStringObject("Key not found", 14);
 	}
 		
-	//setExpire(NULL, db, keyobj, -1);
-    notifyKeyspaceEventExpire(NOTIFY_EXPIRED,"expired",keyobj,valueobj,db->id);
+	setExpire(NULL, db, keyobj, -1);
+    //notifyKeyspaceEventExpire(NOTIFY_EXPIRED,"expired",keyobj,valueobj,db->id);
     signalModifiedKey(NULL, db, keyobj);
 	propagateDeletion(db,keyobj,server.lazyfree_lazy_expire);
     server.stat_expiredkeys++;
