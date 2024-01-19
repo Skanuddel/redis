@@ -134,7 +134,7 @@ void addReplyPubsubMessageExpire(client *c, robj *channel, robj *msg, robj *valu
     if (c->resp == 2)
         addReply(c,shared.mbulkhdr[3]);
     else
-        addReplyPushLen(c,3);
+        addReplyPushLen(c,4);
     addReply(c,message_bulk);
     addReplyBulk(c,channel);
     if (msg) addReplyBulk(c,msg);
