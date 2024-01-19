@@ -122,7 +122,7 @@ void setGenericCommand(client *c, int flags, robj *key, robj *val, robj *expire,
             rewriteClientCommandVector(c, 5, shared.set, key, val, shared.pxat, milliseconds_obj);
             decrRefCount(milliseconds_obj);
         }
-        notifyKeyspaceEvent(NOTIFY_GENERIC,"expire",key,c->db->id);
+        //notifyKeyspaceEvent(NOTIFY_GENERIC,"expire",key,c->db->id);
     }
 
     if (!(flags & OBJ_SET_GET)) {
