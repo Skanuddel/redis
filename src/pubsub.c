@@ -163,9 +163,9 @@ void addReplyPubsubPatMessageExpire(client *c, robj *pat, robj *channel, robj *m
     uint64_t old_flags = c->flags;
     c->flags |= CLIENT_PUSHING;
     if (c->resp == 2)
-        addReply(c,shared.mbulkhdr[4]);
+        addReply(c,shared.mbulkhdr[5]);
     else
-        addReplyPushLen(c,4);
+        addReplyPushLen(c,5);
     addReply(c,shared.pmessagebulk);
     addReplyBulk(c,pat);
     addReplyBulk(c,channel);
@@ -621,7 +621,7 @@ int pubsubPublishMessageInternalExpire(robj *channel, robj *message, robj *value
         dictIterator *iter = dictGetSafeIterator(clients);
         while ((entry = dictNext(iter)) != NULL) {
             client *c = dictGetKey(entry);
-            //addReplyPubsubMessageExpire(c,channel,message,value,*type.messageBulk);
+            addReplyPubsubMessageExpire(c,channel,message,value,*type.messageBulk);
             updateClientMemUsageAndBucket(c);
             receivers++;
         }
