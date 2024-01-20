@@ -163,13 +163,12 @@ void addReplyPubsubPatMessageExpire(client *c, robj *pat, robj *channel, robj *m
     uint64_t old_flags = c->flags;
     c->flags |= CLIENT_PUSHING;
     if (c->resp == 2)
-        addReply(c,shared.mbulkhdr[5]);
+        addReply(c,shared.mbulkhdr[4]);
     else
-        addReplyPushLen(c,5);
+        addReplyPushLen(c,4);
     addReply(c,shared.pmessagebulk);
-    addReplyBulk(c,pat);
+	addReplyBulk(c,msg);
     addReplyBulk(c,channel);
-    addReplyBulk(c,msg);
 	addReplyBulk(c,value);
     if (!(old_flags & CLIENT_PUSHING)) c->flags &= ~CLIENT_PUSHING;
 }
