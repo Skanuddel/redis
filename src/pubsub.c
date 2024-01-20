@@ -621,7 +621,7 @@ int pubsubPublishMessageInternalExpire(robj *channel, robj *message, robj *value
         dictIterator *iter = dictGetSafeIterator(clients);
         while ((entry = dictNext(iter)) != NULL) {
             client *c = dictGetKey(entry);
-            addReplyPubsubMessageExpire(c,channel,message,value,*type.messageBulk);
+            //addReplyPubsubMessageExpire(c,channel,message,value,*type.messageBulk);
             updateClientMemUsageAndBucket(c);
             receivers++;
         }
